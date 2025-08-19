@@ -1,0 +1,37 @@
+units metal
+dimension 3
+boundary p p p
+
+atom_style atomic
+
+
+read_data YBCO.data
+
+mass 1 15.999
+mass 2 63.546
+mass 3 88.90585
+mass 4 137.327
+
+pair_style   hybrid/overlay tabgap eam/fs
+pair_coeff   * * tabgap Ba-Cu-O-Y.tabgap.h5 O Cu Y Ba no yes
+pair_coeff   * * eam/fs Ba-Cu-O-Y.eam.fs O Cu Y Ba
+
+neigh_modify delay 0 every 1 check yes
+
+variable T equal 360
+
+
+thermo_style custom step temp pe ke press vol cella cellb cellc
+thermo 10
+
+velocity all create ${T} 1234
+
+fix 1 all npt temp ${T} ${T} 0.1 aniso 0 0 1
+run 10000
+unfix 1
+
+fix 2 all nvt temp ${T} ${T} 0.1
+run 10000
+unfix 2
+
+write_data YBCO.data
