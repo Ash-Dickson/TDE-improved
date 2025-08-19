@@ -1,0 +1,75 @@
+units metal
+dimension 3
+boundary p p p
+
+atom_style atomic
+
+
+read_data ../../YBCO.data
+
+mass 1 15.999
+mass 2 63.546
+mass 3 88.90585
+mass 4 137.327
+
+pair_style   hybrid/overlay tabgap eam/fs
+pair_coeff   * * tabgap ../../Ba-Cu-O-Y.tabgap.h5 O Cu Y Ba no yes
+pair_coeff   * * eam/fs ../../Ba-Cu-O-Y.eam.fs O Cu Y Ba
+
+neigh_modify delay 0 every 1 check yes
+
+variable T equal MYT
+
+
+thermo_style custom step temp pe ke press vol cella cellb cellc
+thermo 10
+
+velocity all create ${T} MYSEED
+
+fix 1 all nvt temp ${T} ${T} 0.1
+run 500
+unfix 1
+
+reset_timestep 0
+
+# Define the entire simulation box dimensions
+variable xlo equal bound(all,xmin)
+variable xhi equal bound(all,xmax)
+variable ylo equal bound(all,ymin)
+variable yhi equal bound(all,ymax)
+variable zlo equal bound(all,zmin)
+variable zhi equal bound(all,zmax)
+
+# Define variables for the outer shell boundaries
+variable xlo_outer equal ${xlo} + 1
+variable xhi_outer equal ${xhi} - 1
+variable ylo_outer equal ${ylo} + 1
+variable yhi_outer equal ${yhi} - 1
+variable zlo_outer equal ${zlo} + 1
+variable zhi_outer equal ${zhi} - 1
+
+# Define regions for the outer shell
+region outer_xlo block ${xlo} ${xlo_outer} INF INF INF INF
+region outer_xhi block ${xhi_outer} ${xhi} INF INF INF INF
+region outer_ylo block INF INF ${ylo} ${ylo_outer} INF INF
+region outer_yhi block INF INF ${yhi_outer} ${yhi} INF INF
+region outer_zlo block INF INF INF INF ${zlo} ${zlo_outer}
+region outer_zhi block INF INF INF INF ${zhi_outer} ${zhi}
+
+# Combine the regions for the outer shell
+region outer_shell union 6 outer_xlo outer_xhi outer_ylo outer_yhi outer_zlo outer_zhi
+
+# Group atoms in the outer shell
+group boundary region outer_shell
+
+group core subtract all boundary
+
+group PKA id MYPKAID
+
+velocity PKA set MYPKAVEL
+fix core_fix core nve
+fix boundary_fix boundary langevin ${T} ${T} 0.1 48279
+dump positions all atom 400 prod.data
+dump_modify positions first yes
+
+run 400
